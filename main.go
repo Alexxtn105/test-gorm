@@ -11,6 +11,7 @@ import (
 )
 
 // region Структуры для примера "один к одному" и "один ко многим"
+
 type User struct {
 	gorm.Model
 	ID         uint64      `gorm:"primaryKey"`
@@ -39,10 +40,11 @@ type CreditCard struct {
 // endregion
 
 // region Структуры для примера "Многие ко многим"
+
 /* Пример данных
 "Iron Man"				Robert Downey Jr.
 "Avengers"				Robert Downey Jr., Chris Evans, Scarlett Johansson
-"Avenger Infinity War"	Robert Downey Jr., Chris Evans, Scarlett Johansson, Chadwick Boseman
+"Avengers Infinity War"	Robert Downey Jr., Chris Evans, Scarlett Johansson, Chadwick Boseman
 "Sherlock Holmes"		Robert Downey Jr.
 "Lost in Translation"	Scarlett Johansson
 "Marriage Story"		Scarlett Johansson
@@ -70,7 +72,8 @@ func (Filmography) TableName() string {
 
 //endregion
 
-// region Подключение к БД и миграция
+//region Подключение к БД и миграция
+
 var DB *gorm.DB
 
 func connectDatabase() {
@@ -106,9 +109,9 @@ func dbMigrate() {
 //endregion
 
 func main() {
-
 	connectDatabase()
 	dbMigrate()
+
 	//region //Вариант без ассоциаций (отношение "один к одному" и "один ко многим")
 	//var note Note
 	//DB.First(&note)
@@ -133,7 +136,7 @@ func main() {
 
 	//region Вариант с ассоциациями (отношение "один к одному" и "один ко многим")
 	var note Note
-	DB.Preload("User").First(&note) // предзагружаем талицу пользователей - сможем использовать далее в виде "note.User"
+	DB.Preload("User").First(&note) // предварительно загружаем талицу пользователей - сможем использовать далее в виде "note.User"
 	fmt.Printf("User from a note: %s\n", note.User.Username)
 	fmt.Println("-----------------------------")
 
@@ -152,7 +155,24 @@ func main() {
 
 	//region Вариант для отношения "Многие ко многим"
 	var movie Movie
-	DB.Where("name= ?", "Avengers Infinity War").First(&movie)
+	DB.Where("name = ?", "Avengers Infinity War").First(&movie)
 	fmt.Printf("Movie: %s", movie.Name)
+
+	var filmography []Filmography
+	DB.Where("movie_id = ?", movie.ID).Find(&filmography)
+	fmt.Printf("Filmography count: %v\n\n", len(filmography))
+
+	var actor_ids []int
+	for _, element := range filmography {
+		actor_ids = append(actor_ids, element.ActorID)
+	}
+	fmt.Printf("Actor IDs: %v\n\n", actor_ids)
+
+	var actors []Actor
+	DB.Where("id IN ?", actor_ids).Find(&actors)
+	fmt.Println("Actors:")
+	for _, actor := range actors {
+		fmt.Printf("%s\n", actor.Name)
+	}
 	//endregion
 }
