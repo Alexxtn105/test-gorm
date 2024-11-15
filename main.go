@@ -59,7 +59,8 @@ type Movie struct {
 
 type Actor struct {
 	gorm.Model
-	Name string
+	Name   string
+	Movies []Movie `gorm:"many2many:filmography;"` // Задаем отношение "многие ко многим" через таблицу filmography. В этом случае создания структуры Filmography не требуется
 }
 
 // Эта структура не нужна, поскольку в структуре Movie задана ассоциация Actors вида: Actors []Actor `gorm:"many2many:filmography;"`
@@ -181,6 +182,15 @@ func main() {
 	fmt.Println("Actors:")
 	for _, actor := range movie.Actors {
 		fmt.Printf("%s\n", actor.Name)
+	}
+
+	var actor Actor
+	DB.Where("name = ?", "Robert Downey Jr.").Preload("Movies").First(&actor)
+	fmt.Println("Actor: " + actor.Name)
+
+	fmt.Println("Movies:")
+	for _, mov := range actor.Movies {
+		fmt.Printf("%s\n", mov.Name)
 	}
 	//endregion
 }
