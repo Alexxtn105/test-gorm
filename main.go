@@ -14,35 +14,56 @@ func main() {
 
 	connectDatabase()
 	dbMigrate()
+	//region //Вариант без ассоциаций
+	//var note Note
+	//DB.First(&note)
+	//var user User
+	//DB.Where("ID = ?", note.UserID).First(&user)
+	//fmt.Printf("User from a note: %s\n", user.Username)
+	//fmt.Println("-----------------------------")
+	//
+	//var notes []Note
+	//DB.Where("user_id = ?", user.ID).Find(&notes)
+	//
+	//fmt.Printf("Notes from a user:\n")
+	//for _, element := range notes {
+	//	fmt.Printf("%s - %s\n", element.Name, element.Content)
+	//}
+	//fmt.Println("-----------------------------")
+	//
+	//var cc CreditCard
+	//DB.Where("user_id = ?", user.ID).First(&cc)
+	//fmt.Printf("Credit card from a user: %s\n", cc.Number)
+	//endregion
 
+	//region Вариант с ассоциациями
 	var note Note
-	DB.First(&note)
-
-	var user User
-	DB.Where("ID = ?", note.UserID).First(&user)
-	fmt.Printf("User from a note: %s\n", user.Username)
+	DB.Preload("User").First(&note) // предзагружаем талицу пользователей - сможем использовать далее в виде "note.User"
+	fmt.Printf("User from a note: %s\n", note.User.Username)
 	fmt.Println("-----------------------------")
 
-	var notes []Note
-	DB.Where("user_id = ?", user.ID).Find(&notes)
-
+	var user User
+	DB.Preload("Notes").Preload("CreditCard").Where("username = ?", "").First(&user)
 	fmt.Printf("Notes from a user:\n")
-	for _, element := range notes {
+	for _, element := range user.Notes {
 		fmt.Printf("%s - %s\n", element.Name, element.Content)
 	}
 	fmt.Println("-----------------------------")
 
 	var cc CreditCard
 	DB.Where("user_id = ?", user.ID).First(&cc)
-	fmt.Printf("Credit card from a user: %s\n", cc.Number)
+	fmt.Printf("Credit card from a user: %s\n", user.CreditCard.Number)
+	//endregion
 
 }
 
 type User struct {
 	gorm.Model
-	ID       uint64 `gorm:"primaryKey"`
-	Username string `gorm:"size:64"`
-	Password string `gorm:"size:255"`
+	ID         uint64     `gorm:"primaryKey"`
+	Username   string     `gorm:"size:64"`
+	Password   string     `gorm:"size:255"`
+	Notes      []Note     // Ассоциация с записями. В запросе используем DB.Preload("Notes") для сокращения вызовов
+	CreditCard CreditCard // Ассоциация с кредитными картами. В запросе используем DB.Preload("CreditCard") для сокращения вызовов
 }
 
 type Note struct {
@@ -51,6 +72,7 @@ type Note struct {
 	Name    string `gorm:"size:255"`
 	Content string `gorm:"type:text"`
 	UserID  uint64 `gorm:"index"`
+	User    User   // Ассоциация с пользователем. В запросе используем DB.Preload("User") для сокращения вызовов
 }
 
 type CreditCard struct {
