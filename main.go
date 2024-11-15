@@ -138,7 +138,7 @@ func main() {
 	fmt.Println("-----------------------------")
 
 	var user User
-	DB.Preload("Notes").Preload("CreditCard").Where("username = ?", "").First(&user)
+	DB.Preload("Notes").Preload("CreditCard").Where("username = ?", "Alex").First(&user)
 	fmt.Printf("Notes from a user:\n")
 	for _, element := range user.Notes {
 		fmt.Printf("%s - %s\n", element.Name, element.Content)
