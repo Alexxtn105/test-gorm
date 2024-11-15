@@ -64,6 +64,10 @@ type Filmography struct {
 	ActorID int
 }
 
+func (Filmography) TableName() string {
+	return "filmography"
+}
+
 //endregion
 
 // region Подключение к БД и миграция
@@ -93,6 +97,9 @@ func dbMigrate() {
 		&Note{},
 		&User{},
 		&CreditCard{},
+		&Movie{},
+		&Actor{},
+		&Filmography{},
 	)
 }
 
@@ -144,6 +151,8 @@ func main() {
 	//endregion
 
 	//region Вариант для отношения "Многие ко многим"
-
+	var movie Movie
+	DB.Where("name= ?", "Avengers Infinity War").First(&movie)
+	fmt.Printf("Movie: %s", movie.Name)
 	//endregion
 }
