@@ -4,9 +4,14 @@ import (
 	"fmt"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+	"log"
+	"os"
+	"time"
 )
 
 func main() {
+
 	connectDatabase()
 	dbMigrate()
 
@@ -58,7 +63,17 @@ type CreditCard struct {
 var DB *gorm.DB
 
 func connectDatabase() {
-	database, err := gorm.Open(sqlite.Open("storage/storage.db"))
+	newLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		logger.Config{
+			SlowThreshold:             time.Second, //
+			LogLevel:                  logger.Info, // уровень логирования
+			IgnoreRecordNotFoundError: true,        // игнорировать ErrRecordNotFound для логгера
+			Colorful:                  true,        // расцветка
+		},
+	)
+
+	database, err := gorm.Open(sqlite.Open("storage/storage.db"), &gorm.Config{Logger: newLogger})
 	if err != nil {
 		panic("Failed to connect DB!")
 	}
