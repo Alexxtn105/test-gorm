@@ -10,60 +10,14 @@ import (
 	"time"
 )
 
-func main() {
-
-	connectDatabase()
-	dbMigrate()
-	//region //Вариант без ассоциаций
-	//var note Note
-	//DB.First(&note)
-	//var user User
-	//DB.Where("ID = ?", note.UserID).First(&user)
-	//fmt.Printf("User from a note: %s\n", user.Username)
-	//fmt.Println("-----------------------------")
-	//
-	//var notes []Note
-	//DB.Where("user_id = ?", user.ID).Find(&notes)
-	//
-	//fmt.Printf("Notes from a user:\n")
-	//for _, element := range notes {
-	//	fmt.Printf("%s - %s\n", element.Name, element.Content)
-	//}
-	//fmt.Println("-----------------------------")
-	//
-	//var cc CreditCard
-	//DB.Where("user_id = ?", user.ID).First(&cc)
-	//fmt.Printf("Credit card from a user: %s\n", cc.Number)
-	//endregion
-
-	//region Вариант с ассоциациями
-	var note Note
-	DB.Preload("User").First(&note) // предзагружаем талицу пользователей - сможем использовать далее в виде "note.User"
-	fmt.Printf("User from a note: %s\n", note.User.Username)
-	fmt.Println("-----------------------------")
-
-	var user User
-	DB.Preload("Notes").Preload("CreditCard").Where("username = ?", "").First(&user)
-	fmt.Printf("Notes from a user:\n")
-	for _, element := range user.Notes {
-		fmt.Printf("%s - %s\n", element.Name, element.Content)
-	}
-	fmt.Println("-----------------------------")
-
-	var cc CreditCard
-	DB.Where("user_id = ?", user.ID).First(&cc)
-	fmt.Printf("Credit card from a user: %s\n", user.CreditCard.Number)
-	//endregion
-
-}
-
+// region Структуры для примера "один к одному" и "один ко многим"
 type User struct {
 	gorm.Model
-	ID         uint64     `gorm:"primaryKey"`
-	Username   string     `gorm:"size:64"`
-	Password   string     `gorm:"size:255"`
-	Notes      []Note     // Ассоциация с записями. В запросе используем DB.Preload("Notes") для сокращения вызовов
-	CreditCard CreditCard // Ассоциация с кредитными картами. В запросе используем DB.Preload("CreditCard") для сокращения вызовов
+	ID         uint64      `gorm:"primaryKey"`
+	Username   string      `gorm:"size:64"`
+	Password   string      `gorm:"size:255"`
+	Notes      []Note      // Ассоциация с записями. В запросе используем DB.Preload("Notes") для сокращения вызовов
+	CreditCard *CreditCard // Ассоциация с кредитными картами. Используем указатель, чтобы избежать цикличности, так как в структуре User будет ссылка на CreditCard В запросе используем DB.Preload("CreditCard") для сокращения вызовов
 }
 
 type Note struct {
@@ -82,6 +36,37 @@ type CreditCard struct {
 	UserID uint64 `gorm:"index"`
 }
 
+// endregion
+
+// region Структуры для примера "Многие ко многим"
+/* Пример данных
+"Iron Man"				Robert Downey Jr.
+"Avengers"				Robert Downey Jr., Chris Evans, Scarlett Johansson
+"Avenger Infinity War"	Robert Downey Jr., Chris Evans, Scarlett Johansson, Chadwick Boseman
+"Sherlock Holmes"		Robert Downey Jr.
+"Lost in Translation"	Scarlett Johansson
+"Marriage Story"		Scarlett Johansson
+*/
+
+type Movie struct {
+	gorm.Model
+	Name string
+}
+
+type Actor struct {
+	gorm.Model
+	Name string
+}
+
+type Filmography struct {
+	gorm.Model
+	MovieID int
+	ActorID int
+}
+
+//endregion
+
+// region Подключение к БД и миграция
 var DB *gorm.DB
 
 func connectDatabase() {
@@ -109,4 +94,56 @@ func dbMigrate() {
 		&User{},
 		&CreditCard{},
 	)
+}
+
+//endregion
+
+func main() {
+
+	connectDatabase()
+	dbMigrate()
+	//region //Вариант без ассоциаций (отношение "один к одному" и "один ко многим")
+	//var note Note
+	//DB.First(&note)
+	//var user User
+	//DB.Where("ID = ?", note.UserID).First(&user)
+	//fmt.Printf("User from a note: %s\n", user.Username)
+	//fmt.Println("-----------------------------")
+	//
+	//var notes []Note
+	//DB.Where("user_id = ?", user.ID).Find(&notes)
+	//
+	//fmt.Printf("Notes from a user:\n")
+	//for _, element := range notes {
+	//	fmt.Printf("%s - %s\n", element.Name, element.Content)
+	//}
+	//fmt.Println("-----------------------------")
+	//
+	//var cc CreditCard
+	//DB.Where("user_id = ?", user.ID).First(&cc)
+	//fmt.Printf("Credit card from a user: %s\n", cc.Number)
+	//endregion
+
+	//region Вариант с ассоциациями (отношение "один к одному" и "один ко многим")
+	var note Note
+	DB.Preload("User").First(&note) // предзагружаем талицу пользователей - сможем использовать далее в виде "note.User"
+	fmt.Printf("User from a note: %s\n", note.User.Username)
+	fmt.Println("-----------------------------")
+
+	var user User
+	DB.Preload("Notes").Preload("CreditCard").Where("username = ?", "").First(&user)
+	fmt.Printf("Notes from a user:\n")
+	for _, element := range user.Notes {
+		fmt.Printf("%s - %s\n", element.Name, element.Content)
+	}
+	fmt.Println("-----------------------------")
+
+	var cc CreditCard
+	DB.Where("user_id = ?", user.ID).First(&cc)
+	fmt.Printf("Credit card from a user: %s\n", user.CreditCard.Number)
+	//endregion
+
+	//region Вариант для отношения "Многие ко многим"
+
+	//endregion
 }
