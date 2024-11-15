@@ -53,6 +53,8 @@ type CreditCard struct {
 type Movie struct {
 	gorm.Model
 	Name string
+	//Добавим поле для ассоциаций gorm
+	Actors []Actor `gorm:"many2many:filmography;"` // Задаем отношение "многие ко многим" через таблицу filmography. В этом случае создания структуры Filmography не требуется
 }
 
 type Actor struct {
@@ -60,15 +62,16 @@ type Actor struct {
 	Name string
 }
 
-type Filmography struct {
-	gorm.Model
-	MovieID int
-	ActorID int
-}
-
-func (Filmography) TableName() string {
-	return "filmography"
-}
+// Эта структура не нужна, поскольку в структуре Movie задана ассоциация Actors вида: Actors []Actor `gorm:"many2many:filmography;"`
+//type Filmography struct {
+//	gorm.Model
+//	MovieID int
+//	ActorID int
+//}
+//
+//func (Filmography) TableName() string {
+//	return "filmography"
+//}
 
 //endregion
 
@@ -102,11 +105,13 @@ func dbMigrate() {
 		&CreditCard{},
 		&Movie{},
 		&Actor{},
-		&Filmography{},
+		//&Filmography{}, // не нужно, gorm создаст из ассоциаций
 	)
 }
 
 //endregion
+
+//region main
 
 func main() {
 	connectDatabase()
@@ -155,24 +160,29 @@ func main() {
 
 	//region Вариант для отношения "Многие ко многим"
 	var movie Movie
-	DB.Where("name = ?", "Avengers Infinity War").First(&movie)
-	fmt.Printf("Movie: %s", movie.Name)
+	// необходимо сделать Preload таблицы Actors (для работы ассоциаций gorm)
+	DB.Where("name = ?", "Avengers Infinity War").Preload("Actors").First(&movie)
 
-	var filmography []Filmography
-	DB.Where("movie_id = ?", movie.ID).Find(&filmography)
-	fmt.Printf("Filmography count: %v\n\n", len(filmography))
-
-	var actor_ids []int
-	for _, element := range filmography {
-		actor_ids = append(actor_ids, element.ActorID)
-	}
-	fmt.Printf("Actor IDs: %v\n\n", actor_ids)
-
-	var actors []Actor
-	DB.Where("id IN ?", actor_ids).Find(&actors)
+	// Код ниже не нужен, поскольку мы используем ассоциации gorm и Preload
+	//fmt.Printf("Movie: %s", movie.Name)
+	//
+	//var filmography []Filmography
+	//DB.Where("movie_id = ?", movie.ID).Find(&filmography)
+	//fmt.Printf("Filmography count: %v\n\n", len(filmography))
+	//
+	//var actor_ids []int
+	//for _, element := range filmography {
+	//	actor_ids = append(actor_ids, element.ActorID)
+	//}
+	//fmt.Printf("Actor IDs: %v\n\n", actor_ids)
+	//
+	//var actors []Actor
+	//DB.Where("id IN ?", actor_ids).Find(&actors)
 	fmt.Println("Actors:")
-	for _, actor := range actors {
+	for _, actor := range movie.Actors {
 		fmt.Printf("%s\n", actor.Name)
 	}
 	//endregion
 }
+
+//endregion
