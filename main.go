@@ -76,6 +76,53 @@ type Actor struct {
 
 //endregion
 
+//region Структуры для Gorm Scopes
+
+type Consumer struct {
+	gorm.Model
+	ID     int64   `gorm:"primaryKey"`
+	Name   string  `gorm:"size:255"`
+	Email  string  `gorm:"size:255"`
+	Orders []Order // У одного пользователя может быть несколько заказов
+}
+
+type Order struct {
+	gorm.Model
+	ID          int64 `gorm:"primaryKey"`
+	ConsumerID  int64
+	OrderTime   time.Time // Время заказа
+	PaymentMode string    `gorm:"size:255"` // Card or Cache
+	Price       int       // Стоимость
+	Consumer    Consumer  // Пользователь, осуществивший заказ
+}
+
+//endregion
+
+// region Gorm Scopes
+
+// CardOrders функция, использующая gorm scope и возращающая все заказы, оплаченные картой
+func CardOrders(db *gorm.DB) *gorm.DB {
+	// РЕГИСТР В УСЛОВИИ ПОИСКА ИМЕЕТ ЗНАЧЕНИЕ!!!
+	return db.Where("payment_mode = ?", "Card")
+}
+
+// PriceGreaterThan30 получить все заказы стоимостью более 30
+func PriceGreaterThan30(db *gorm.DB) *gorm.DB {
+	return db.Where("price > ?", 30)
+}
+
+// UsersFromDomain - возвращает всех пользователей.
+// В качестве возвращаемого значения используется функция-замыкание с сигнатурой gorm Scope: func(db *gorm.DB) *gorm.DB
+func UsersFromDomain(domain string) func(db *gorm.DB) *gorm.DB {
+	// возвращаем функцию-замыкание
+	return func(db *gorm.DB) *gorm.DB {
+		// возвращаем всех пользователей, чья почта заканчивается на указанный в параметре domain (например ".com")
+		return db.Where("email like ?", "%"+domain)
+	}
+}
+
+//endregion
+
 //region Подключение к БД и миграция
 
 var DB *gorm.DB
@@ -106,6 +153,8 @@ func dbMigrate() {
 		&CreditCard{},
 		&Movie{},
 		&Actor{},
+		&Consumer{},
+		&Order{},
 		//&Filmography{}, // не нужно, gorm создаст из ассоциаций
 	)
 }
@@ -119,6 +168,7 @@ func main() {
 	dbMigrate()
 
 	//region //Вариант без ассоциаций (отношение "один к одному" и "один ко многим")
+
 	//var note Note
 	//DB.First(&note)
 	//var user User
@@ -192,6 +242,42 @@ func main() {
 	for _, mov := range actor.Movies {
 		fmt.Printf("%s\n", mov.Name)
 	}
+	//endregion
+
+	//region Вариант Gorm Scopes
+
+	// Берем все заказы, оплаченные картой с использованием Scopes.
+	// Метод Scopes принимает в качестве аргументов функции CardOrders и PriceGreaterThan30 - они объединяются по условию "AND"
+
+	var orders []Order
+	DB.Scopes(CardOrders, PriceGreaterThan30).Find(&orders)
+	fmt.Println("orders:")
+	for _, order := range orders {
+		fmt.Printf("%s: by %s,  %d р.\n", order.OrderTime, order.PaymentMode, order.Price)
+	}
+
+	var consumers []Consumer
+	domain := ".com"
+	// ВАРИАНТ 1 - Обычный вызов
+	//DB.Scopes(UsersFromDomain(domain)).Find(&consumers)
+
+	//ВАРИАНТ 2 - С доп. условиями - Используем Preload таблицы Orders, там же фильтруем с использованием scope.
+	// Например, выведем всех пользователей из домена .com (UsersFromDomain), оплативших заказы картой (CardOrders)
+	DB.Scopes(UsersFromDomain(domain)).Preload("Orders", CardOrders).Find(&consumers)
+	fmt.Printf("Consumers with domain %s:\n", domain)
+	for _, consumer := range consumers {
+		fmt.Printf("%s: %s\n", consumer.Name, consumer.Email)
+	}
+
+	// выводим заказ только ПЕРВОГО пользователя
+	if len(consumers) > 0 {
+
+		fmt.Printf("Orders of user %s:\n", consumers[0].Name)
+		for _, order := range consumers[0].Orders {
+			fmt.Printf("%s: by %s,  %d р.\n", order.OrderTime, order.PaymentMode, order.Price)
+		}
+	}
+
 	//endregion
 }
 
