@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -16,6 +17,7 @@ type User struct {
 	gorm.Model
 	ID         uint64      `gorm:"primaryKey"`
 	Username   string      `gorm:"size:64"`
+	Email      string      `gorm:"size:255;unique"`
 	Password   string      `gorm:"size:255"`
 	Notes      []Note      // Ассоциация с записями. В запросе используем DB.Preload("Notes") для сокращения вызовов
 	CreditCard *CreditCard // Ассоциация с кредитными картами. Используем указатель, чтобы избежать цикличности, так как в структуре User будет ссылка на CreditCard В запросе используем DB.Preload("CreditCard") для сокращения вызовов
@@ -119,6 +121,29 @@ func UsersFromDomain(domain string) func(db *gorm.DB) *gorm.DB {
 		// возвращаем всех пользователей, чья почта заканчивается на указанный в параметре domain (например ".com")
 		return db.Where("email like ?", "%"+domain)
 	}
+}
+
+//endregion
+
+//region Gorm Hooks
+
+// BeforeCreate Функция из Gorm Hooks - выполняется ДО ОПЕРАЦИИ ДОБАВЛЕНИЯ ЗАПИСИ
+// В качестве аргумента используется выполняемая транзакция (tx *gorm.DB)
+// Сигнатура функции должна быть именно такой
+func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
+	fmt.Println("BeforeCreate!!!")
+
+	// настроим функцию Hook таким образом, чтобы она проверяла заполненность поля User
+	if u.Username == "" {
+		return errors.New("имя не может быть пустым")
+	}
+	return nil
+}
+
+func (u *User) AfterCreate(tx *gorm.DB) (err error) {
+	// В качестве пример отправим email об успешном создании пользователя
+	fmt.Printf("CREATED: User ID: %d, Email:%s\n", u.ID, u.Email)
+	return nil
 }
 
 //endregion
@@ -278,6 +303,17 @@ func main() {
 		}
 	}
 
+	//endregion
+
+	//region Gorm Hooks
+	//создаем нового пользователя
+	//user = User{Username: "John", Email: "johndoe@gmail.com"}
+	user = User{Username: "John", Email: "johndoe@gmail.com"}
+	result := DB.Create(&user)
+
+	if result.Error != nil {
+		panic("HOOKS: failed to create user! Error: " + result.Error.Error())
+	}
 	//endregion
 }
 
