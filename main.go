@@ -100,6 +100,18 @@ type Order struct {
 
 //endregion
 
+// region Структуры для Gorm Serialization
+type Product struct {
+	gorm.Model
+	Name        string         //`gorm:"unique"`
+	Tags        []string       `gorm:"type:bytes;serializer:json"`    // Указываем, как хранить эти поля в БД
+	Spec        map[string]any `gorm:"serializer:json"`               // Указываем, что это значение должно быть преобразовано в json перед тем, как внесено в БД
+	SpecGob     map[string]any `gorm:"type:bytes;serializer:gob"`     // gob - бинарный формат данных языка Go, наряду с json и xml. Пакет encoding/gob.
+	CreatedTime int64          `gorm:"type:time;serializer:unixtime"` // Время в UNIX-формате (число int64). Также сериализуется.
+}
+
+//endregion
+
 // region Gorm Scopes
 
 // CardOrders функция, использующая gorm scope и возращающая все заказы, оплаченные картой
@@ -148,6 +160,10 @@ func (u *User) AfterCreate(tx *gorm.DB) (err error) {
 
 //endregion
 
+//region Gorm Serialization
+
+//endregion
+
 //region Подключение к БД и миграция
 
 var DB *gorm.DB
@@ -180,7 +196,7 @@ func dbMigrate() {
 		&Actor{},
 		&Consumer{},
 		&Order{},
-		//&Filmography{}, // не нужно, gorm создаст из ассоциаций
+		&Product{},
 	)
 }
 
@@ -306,14 +322,67 @@ func main() {
 	//endregion
 
 	//region Gorm Hooks
+
 	//создаем нового пользователя
 	//user = User{Username: "John", Email: "johndoe@gmail.com"}
 	user = User{Username: "John", Email: "johndoe@gmail.com"}
 	result := DB.Create(&user)
 
 	if result.Error != nil {
-		panic("HOOKS: failed to create user! Error: " + result.Error.Error())
+		//panic("HOOKS: failed to create user! Error: " + result.Error.Error())
+		fmt.Println("HOOKS: failed to create user! Error: ", result.Error.Error())
 	}
+	//endregion
+
+	//region Gorm Serialize
+	createdAt := time.Now()
+	fmt.Println("createdAt.Unix():", createdAt.Unix())
+	data := Product{
+		Name: "Apple iPhone 13",
+		Tags: []string{"smartphone", "iphone", "apple", "cell phone", "5g", "camera", "retina display"},
+		Spec: map[string]interface{}{
+			"name":       "Apple iPhone 13",
+			"display":    "6.1 inches",
+			"resolution": "2532 x 1170 pixels",
+			"processor":  "Apple A15 Bionic",
+			"ram":        "6GB",
+			"storage":    "128GB",
+		},
+		SpecGob: map[string]interface{}{
+			"name":       "Apple iPhone 13",
+			"display":    "6.1 inches",
+			"resolution": "2532 x 1170 pixels",
+			"processor":  "Apple A15 Bionic",
+			"ram":        "6GB",
+			"storage":    "128GB",
+		},
+		CreatedTime: createdAt.Unix(),
+	}
+
+	// Создаем запись в БД
+	DB.Create(&data)
+
+	// ищем запись в БД
+	var product Product
+	//	DB.First(&product, "id = ?", data.ID)
+	DB.First(&product, "id = ?", data.ID)
+
+	// выводим на экран
+	fmt.Printf("Name: ")
+	fmt.Println(product.Name)
+
+	fmt.Printf("Tags: ")
+	fmt.Println(product.Tags)
+
+	fmt.Printf("Spec: ")
+	fmt.Println(product.Spec)
+
+	fmt.Printf("SpecGob: ")
+	fmt.Println(product.SpecGob)
+
+	fmt.Printf("CreatedTime: ")
+	fmt.Println(product.CreatedTime)
+
 	//endregion
 }
 
